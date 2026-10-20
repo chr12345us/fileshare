@@ -8,9 +8,9 @@
 # description of the API flow.
 #
 # Usage:
-#   ./upload_to_radware_proxy.sh -x https://proxy.example.com:8443 -e you@example.com file1.pcap file2.zip
-#   ./upload_to_radware_proxy.sh -x https://user:pass@proxy.example.com:8443 -e you@example.com -s 12345678 dump.tar.gz
-#   HTTPS_PROXY=https://proxy.example.com:8443 ./upload_to_radware_proxy.sh -e you@example.com dump.tar.gz
+#   ./fileshare_upload.sh -x https://proxy.example.com:8443 -e you@example.com file1.pcap file2.zip
+#   ./fileshare_upload.sh -x https://user:pass@proxy.example.com:8443 -e you@example.com -s 12345678 dump.tar.gz
+#   HTTPS_PROXY=https://proxy.example.com:8443 ./fileshare_upload.sh -e you@example.com dump.tar.gz
 
 set -euo pipefail
 

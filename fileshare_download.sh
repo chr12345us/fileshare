@@ -8,10 +8,10 @@
 # for the full description of the API flow.
 #
 # Usage:
-#   ./download_from_radware_proxy.sh -x https://proxy.example.com:8443 https://fileshare.radware.com/j/paS8gV6s2k-7zr3
-#   ./download_from_radware_proxy.sh -x https://user:pass@proxy.example.com:8443 -o downloads/ paS8gV6s2k-7zr3
-#   HTTPS_PROXY=https://proxy.example.com:8443 ./download_from_radware_proxy.sh -l paS8gV6s2k-7zr3
-#   ./download_from_radware_proxy.sh -f ComparePlus.zip https://fileshare.radware.com/j/paS8gV6s2k-7zr3
+#   ./fileshare_download.sh -x https://proxy.example.com:8443 https://fileshare.radware.com/j/paS8gV6s2k-7zr3
+#   ./fileshare_download.sh -x https://user:pass@proxy.example.com:8443 -o downloads/ paS8gV6s2k-7zr3
+#   HTTPS_PROXY=https://proxy.example.com:8443 ./fileshare_download.sh -l paS8gV6s2k-7zr3
+#   ./fileshare_download.sh -f ComparePlus.zip https://fileshare.radware.com/j/paS8gV6s2k-7zr3
 
 set -euo pipefail
 
