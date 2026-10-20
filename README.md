@@ -131,11 +131,10 @@ file is fetched directly, not zipped.
 ### Options
 
 ```
-Usage: fileshare_download.sh [-o DIR] [-p PASSWORD] [-f FILENAME]... [-x PROXY] [-l] LINK
+Usage: fileshare_download.sh [-o DIR] [-f FILENAME]... [-x PROXY] [-l] LINK
 
   LINK          Share link (https://fileshare.radware.com/j/XXXX) or bare key.
   -o DIR        Output directory (default: current directory).
-  -p PASSWORD   Password, for password-protected shares.
   -f FILENAME   Only download this file (repeatable). Default: all files.
   -x PROXY      HTTPS proxy to use, e.g. https://proxy.example.com:8443 or
                 https://user:pass@proxy.example.com:8443 (also HTTP/SOCKS
