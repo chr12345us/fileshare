@@ -19,6 +19,11 @@ SITE="https://fileshare.radware.com"
 PAGE="radware-filepile"
 PAGE_URL="$SITE/en/page/$PAGE"
 
+# Ensures temp files are removed even on error exit or Ctrl-C, not just the happy path.
+declare -a TMP_FILES=()
+cleanup_tmp_files() { rm -f "${TMP_FILES[@]}" 2>/dev/null || true; }
+trap cleanup_tmp_files EXIT
+
 EMAIL=""
 SR=""
 # Falls back to the standard HTTPS_PROXY/https_proxy environment variables when
@@ -81,7 +86,8 @@ print("" if d is None else d)
 api_once() {
     local status tmp rc=0
     tmp=$(mktemp)
-    status=$(curl -sS -o "$tmp" -w '%{http_code}' \
+    TMP_FILES+=("$tmp")
+    status=$(curl -sS --max-time 60 -o "$tmp" -w '%{http_code}' \
         "${PROXY_OPTS[@]}" \
         -H "Origin: $SITE" -H "Referer: $PAGE_URL" \
         -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64) radware-fileshare-uploader' \
@@ -218,10 +224,12 @@ print(json.dumps({"expiration": e["EXP"], "conditions": [
     echo "  uploading $name ($size bytes)..."
     headers=$(mktemp)
     body=$(mktemp)
+    TMP_FILES+=("$headers" "$body")
     status=""
     for attempt in 1 2 3; do
         status=$(curl -sS -D "$headers" -o "$body" -w '%{http_code}' \
             "${PROXY_OPTS[@]}" \
+            --max-time 3600 \
             -H "Origin: $SITE" -H "Referer: $PAGE_URL" \
             -F "key=$key" \
             -F "AWSAccessKeyId=$s3_key" \

@@ -18,8 +18,12 @@ set -euo pipefail
 API="https://api.fileshare.radware.com"
 SITE="https://fileshare.radware.com"
 
+# Ensures temp files are removed even on error exit or Ctrl-C, not just the happy path.
+declare -a TMP_FILES=()
+cleanup_tmp_files() { rm -f "${TMP_FILES[@]}" 2>/dev/null || true; }
+trap cleanup_tmp_files EXIT
+
 OUTDIR="."
-PASSWORD=""
 LIST_ONLY=0
 declare -a WANT_FILES=()
 # Falls back to the standard HTTPS_PROXY/https_proxy environment variables when
@@ -28,11 +32,10 @@ PROXY="${HTTPS_PROXY:-${https_proxy:-}}"
 
 usage() {
     cat >&2 <<EOF
-Usage: $(basename "$0") [-o DIR] [-p PASSWORD] [-f FILENAME]... [-x PROXY] [-l] LINK
+Usage: $(basename "$0") [-o DIR] [-f FILENAME]... [-x PROXY] [-l] LINK
 
   LINK          Share link (https://fileshare.radware.com/j/XXXX) or bare key.
   -o DIR        Output directory (default: current directory).
-  -p PASSWORD   Password, for password-protected shares.
   -f FILENAME   Only download this file (repeatable). Default: all files.
   -x PROXY      HTTPS proxy to use, e.g. https://proxy.example.com:8443 or
                 https://user:pass@proxy.example.com:8443 (also HTTP/SOCKS
@@ -43,10 +46,9 @@ EOF
     exit 2
 }
 
-while getopts ":o:p:f:x:lh" opt; do
+while getopts ":o:f:x:lh" opt; do
     case "$opt" in
         o) OUTDIR="$OPTARG" ;;
-        p) ****** ;;
         f) WANT_FILES+=("$OPTARG") ;;
         x) PROXY="$OPTARG" ;;
         l) LIST_ONLY=1 ;;
@@ -80,6 +82,7 @@ REF="$SITE/j/$KEY"
 api_once() {
     local status tmp rc=0
     tmp=$(mktemp)
+    TMP_FILES+=("$tmp")
     status=$(curl -sS --max-time 60 -o "$tmp" -w '%{http_code}' \
         "${PROXY_OPTS[@]}" \
         -H "Origin: $SITE" -H "Referer: $REF" \
@@ -129,11 +132,11 @@ declare -a entries=()
 page=1
 while :; do
     body_file=$(mktemp)
-    PASS="$PASSWORD" MID="$mail_id" PAGE="$page" python3 -c '
+    TMP_FILES+=("$body_file")
+    MID="$mail_id" PAGE="$page" python3 -c '
 import json, os
-pw = os.environ["PASS"] or None
 print(json.dumps({"encryptedMailId": os.environ["MID"], "page": int(os.environ["PAGE"]), "perPage": 30,
-                  "sortAsc": True, "sortBy": "Name", "folderId": None, "password": pw,
+                  "sortAsc": True, "sortBy": "Name", "folderId": None, "password": None,
                   "search": "", "deleteHashId": "", "contributorsFilter": [],
                   "foldersStructured": False}))
 ' > "$body_file"
@@ -153,7 +156,7 @@ for fid, meta in (d.get("files") or {}).items():
     page=$((page + 1))
 done
 
-[[ ${#entries[@]} -gt 0 ]] || { echo "error: no files found (wrong link or password?): $files_body" >&2; exit 1; }
+[[ ${#entries[@]} -gt 0 ]] || { echo "error: no files found (wrong link?): $files_body" >&2; exit 1; }
 
 echo "Found ${#entries[@]} file(s) in $LINK"
 for e in "${entries[@]}"; do
@@ -196,12 +199,12 @@ else
 fi
 
 body_file=$(mktemp)
-PASS="$PASSWORD" MID="$mail_id" FL="$file_list" DT="$download_type" python3 -c '
+TMP_FILES+=("$body_file")
+MID="$mail_id" FL="$file_list" DT="$download_type" python3 -c '
 import json, os
-pw = os.environ["PASS"] or None
 print(json.dumps({"folderPathId": None, "encryptedMailId": os.environ["MID"],
                   "fileList": os.environ["FL"], "downloadType": os.environ["DT"],
-                  "password": pw, "isCollection": False, "culture": "en",
+                  "password": None, "isCollection": False, "culture": "en",
                   "isProxySuccess": True, "uid": None, "captchaServiceName": "google"}))
 ' > "$body_file"
 link_resp=$(json_api "$body_file" -X POST "$API/mails/ReactGetDownloadLink")
