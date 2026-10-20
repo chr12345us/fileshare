@@ -1,5 +1,7 @@
 # Radware Fileshare Uploader / Downloader
 
+**Version:** 1.4
+
 Command-line tools for the Radware file sharing portal at
 <https://fileshare.radware.com/en/page/radware-filepile>.
 
@@ -11,24 +13,30 @@ a terminal, a jump host, or a cron job.
 
 | Script | Needs | Use when |
 | --- | --- | --- |
-| [`upload_to_radware.sh`](upload_to_radware.sh) | `curl`, `python3` | **Default for uploads.** Talks to the portal's private API directly. Fast, no browser. |
+| [`fileshare_upload.sh`](fileshare_upload.sh) | `curl`, `python3` | **Default for uploads.** Talks to the portal's private API directly. Fast, no browser. Optionally routes through a proxy via `-x`. |
+| [`fileshare_download.sh`](fileshare_download.sh) | `curl`, `python3` | Downloads the file(s) behind a `fileshare.radware.com/j/<key>` link. Optionally routes through a proxy via `-x`. |
 | [`upload_to_radware.py`](upload_to_radware.py) | Python + Playwright + Chromium | Fallback if Radware/JumboMail change the API. Drives a real browser through the actual form. |
-| [`download_from_radware.sh`](download_from_radware.sh) | `curl`, `python3` | Downloads the file(s) behind a `fileshare.radware.com/j/<key>` link. |
-| [`upload_to_radware_proxy.sh`](upload_to_radware_proxy.sh) | `curl`, `python3` | Same as `upload_to_radware.sh`, but routes every request through an HTTPS/HTTP/SOCKS proxy via `-x`. Use on networks without a direct internet connection. |
-| [`download_from_radware_proxy.sh`](download_from_radware_proxy.sh) | `curl`, `python3` | Same as `download_from_radware.sh`, but routes every request through an HTTPS/HTTP/SOCKS proxy via `-x`. Use on networks without a direct internet connection. |
+
+Both shell scripts connect directly to the internet by default. If the host
+running them has no direct internet connection, pass `-x PROXY` (or export
+`HTTPS_PROXY`/`https_proxy`) to route every request through an HTTPS/HTTP/SOCKS
+proxy — see [Using a proxy](#using-a-proxy).
 
 ---
 
 ## Quick start (curl version)
 
 ```bash
-chmod +x upload_to_radware.sh
+chmod +x fileshare_upload.sh
 
 # No case / new service request
-./upload_to_radware.sh -e you@radware.com bigfile.tar.gz
+./fileshare_upload.sh -e you@radware.com bigfile.tar.gz
 
 # Attach to an existing service request
-./upload_to_radware.sh -e you@radware.com -s 12345678 capture.pcap dump.log
+./fileshare_upload.sh -e you@radware.com -s 12345678 capture.pcap dump.log
+
+# Through a proxy
+./fileshare_upload.sh -x https://proxy.example.com:8443 -e you@radware.com bigfile.tar.gz
 ```
 
 Output:
@@ -49,11 +57,16 @@ only way to delete the transfer afterwards.
 ### Options
 
 ```
-Usage: upload_to_radware.sh -e EMAIL [-s SR_NUMBER] FILE [FILE...]
+Usage: fileshare_upload.sh -e EMAIL [-s SR_NUMBER] [-x PROXY] FILE [FILE...]
 
   -e EMAIL      Your email address (required by the form).
   -s SR_NUMBER  Existing Service Request number.
                 Omit for "No Case / New Service Request".
+  -x PROXY      HTTPS proxy to use, e.g. https://proxy.example.com:8443 or
+                https://user:pass@proxy.example.com:8443 (also HTTP/SOCKS
+                proxy URLs are accepted, per curl's -x/--proxy syntax).
+                Defaults to $HTTPS_PROXY / $https_proxy if set. Omit entirely
+                to connect directly with no proxy.
 ```
 
 Multiple files are sent as a single transaction, exactly as if you had added them
@@ -92,19 +105,22 @@ presses **Send**, and waits for the success text.
 
 ---
 
-## Downloading files (`download_from_radware.sh`)
+## Downloading files (`fileshare_download.sh`)
 
 ```bash
-chmod +x download_from_radware.sh
+chmod +x fileshare_download.sh
 
 # Download every file in the share to the current directory
-./download_from_radware.sh https://fileshare.radware.com/j/paS8gV6s2k-7zr3
+./fileshare_download.sh https://fileshare.radware.com/j/paS8gV6s2k-7zr3
 
 # List the files in a share without downloading
-./download_from_radware.sh -l https://fileshare.radware.com/j/paS8gV6s2k-7zr3
+./fileshare_download.sh -l https://fileshare.radware.com/j/paS8gV6s2k-7zr3
 
 # Only fetch one file, into a specific directory
-./download_from_radware.sh -o downloads/ -f ComparePlus.zip paS8gV6s2k-7zr3
+./fileshare_download.sh -o downloads/ -f ComparePlus.zip paS8gV6s2k-7zr3
+
+# Through a proxy
+./fileshare_download.sh -x https://proxy.example.com:8443 https://fileshare.radware.com/j/paS8gV6s2k-7zr3
 ```
 
 A bare share key (the part after `/j/`) works the same as the full URL. If the
@@ -115,12 +131,17 @@ file is fetched directly, not zipped.
 ### Options
 
 ```
-Usage: download_from_radware.sh [-o DIR] [-p PASSWORD] [-f FILENAME]... [-l] LINK
+Usage: fileshare_download.sh [-o DIR] [-p PASSWORD] [-f FILENAME]... [-x PROXY] [-l] LINK
 
   LINK          Share link (https://fileshare.radware.com/j/XXXX) or bare key.
   -o DIR        Output directory (default: current directory).
   -p PASSWORD   Password, for password-protected shares.
   -f FILENAME   Only download this file (repeatable). Default: all files.
+  -x PROXY      HTTPS proxy to use, e.g. https://proxy.example.com:8443 or
+                https://user:pass@proxy.example.com:8443 (also HTTP/SOCKS
+                proxy URLs are accepted, per curl's -x/--proxy syntax).
+                Defaults to $HTTPS_PROXY / $https_proxy if set. Omit entirely
+                to connect directly with no proxy.
   -l            List the files in the share and exit (no download).
 ```
 
@@ -199,30 +220,26 @@ compare the XHR calls with the table above.
 
 ## Using a proxy
 
-If the host running these scripts has no direct internet connection,
-[`upload_to_radware_proxy.sh`](upload_to_radware_proxy.sh) and
-[`download_from_radware_proxy.sh`](download_from_radware_proxy.sh) are drop-in
-copies of `upload_to_radware.sh` / `download_from_radware.sh` with an added
-`-x PROXY` option. Every `curl` request (API calls and the S3/CDN file
-transfer) is routed through it.
+Both `fileshare_upload.sh` and `fileshare_download.sh` accept an optional `-x
+PROXY` flag that routes every `curl` request (API calls and the S3/CDN file
+transfer) through an HTTPS/HTTP/SOCKS proxy. Use it on networks without a
+direct internet connection; omit it to connect directly, same as before.
 
 ```bash
-# Explicit proxy, same arguments as the non-proxy scripts otherwise
-./upload_to_radware_proxy.sh -x https://proxy.example.com:8443 -e you@radware.com bigfile.tar.gz
-./download_from_radware_proxy.sh -x https://proxy.example.com:8443 https://fileshare.radware.com/j/paS8gV6s2k-7zr3
+# Explicit proxy, same arguments as without -x otherwise
+./fileshare_upload.sh -x https://proxy.example.com:8443 -e you@radware.com bigfile.tar.gz
+./fileshare_download.sh -x https://proxy.example.com:8443 https://fileshare.radware.com/j/paS8gV6s2k-7zr3
 
 # Or rely on the usual environment variables instead of -x
-HTTPS_PROXY=https://proxy.example.com:8443 ./upload_to_radware_proxy.sh -e you@radware.com bigfile.tar.gz
+HTTPS_PROXY=https://proxy.example.com:8443 ./fileshare_upload.sh -e you@radware.com bigfile.tar.gz
 ```
 
 `-x` accepts anything `curl`'s own `-x`/`--proxy` option accepts — `http://`,
 `https://` and `socks5://` proxy URLs, with optional `user:password@`
 credentials embedded in the URL. When `-x` is omitted, the scripts fall back to
 the standard `HTTPS_PROXY`/`https_proxy` environment variables, so they also
-behave correctly in shells that already export a proxy.
-
-The plain `upload_to_radware.sh` / `download_from_radware.sh` scripts are
-unchanged and still connect directly to the internet.
+behave correctly in shells that already export a proxy, and connect directly
+when none is set.
 
 ---
 
